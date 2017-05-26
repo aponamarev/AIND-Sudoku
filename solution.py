@@ -66,7 +66,7 @@ def naked_twins(values):
                         # eliminate digits in twin values from the other peers
                         for peer in subspace:
                             # ensure that twin values themselves are remain intact
-                            if peer not in twins:
+                            if (peer not in twins) & (len(values[peer])>1):
                                 assign_value(values, peer, values[peer].replace(digit,''))
     return values
 
