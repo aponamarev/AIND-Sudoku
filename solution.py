@@ -48,26 +48,25 @@ def naked_twins(values):
     # Find all instances of naked twins
     # Identify twins in both rows and columns
     for search_space in (column_units, row_units):
+        twins = []
         for subspace in search_space:
             # Check every box of subspace for twins
             for box in subspace:
-                twins = []
                 # Twins defined as a peer box that has the same value and the length of 2
                 if len(values[box])==2:
                     for peer in subspace:
                         if (peer!=box) & (values[box]==values[peer]):
-                            twins = [peer, box]
-                # Eliminate the naked twins as possibilities for their peers
-                if len(twins)>0:
-                    # To minimize compute time, we should only run the algorithm on one of the twins
-                    # (as they have the same value)
-                    twin = twins[0]
-                    for digit in values[twin]:
-                        # eliminate digits in twin values from the other peers
-                        for peer in subspace:
-                            # ensure that twin values themselves are remain intact
-                            if peer not in twins:
-                                assign_value(values, peer, values[peer].replace(digit,''))
+                            twins.extend([peer, box])
+    twins = set(twins)
+    # Eliminate the naked twins as possibilities for their peers
+    if len(twins)>0:
+        for twin in twins:
+            for digit in values[twin]:
+                # eliminate digits in twin values from the other peers
+                for peer in peers[twin]:
+                    # ensure that twin values themselves are remain intact
+                    if (peer not in twins) & (len(values[peer])>1):
+                        assign_value(values, peer, values[peer].replace(digit,''))
     return values
 
 
