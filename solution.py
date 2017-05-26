@@ -7,6 +7,11 @@ def cross(A, B):
     "Cross product of elements in A and elements in B."
     return [s+t for s in A for t in B]
 
+def diagonal(A,B):
+    assert len(A)==len(B), "Error: lists of wrong size provided. A - {}, B - {}".format(len(A),len(B))
+    return [A[i]+B[i] for i in range(len(A))]
+
+
 row_units = [cross(r, cols) for r in rows]
 column_units = [cross(rows, c) for c in cols]
 square_units = [cross(rs, cs) for rs in ('ABC','DEF','GHI') for cs in ('123','456','789')]
@@ -14,6 +19,7 @@ boxes = cross(rows, cols)
 unitlist = row_units + column_units + square_units
 units = dict((s, [u for u in unitlist if s in u]) for s in boxes)
 peers = dict((s, set(sum(units[s],[]))-set([s])) for s in boxes)
+diagonals = [diagonal(rows, cols), diagonal(rows[::-1], cols)]
 
 
 def assign_value(values, box, value):
@@ -40,22 +46,71 @@ def naked_twins(values):
         the values dictionary with the naked twins eliminated from peers.
     """
     # Find all instances of naked twins
+    # Identify twins in both rows and columns
     for search_space in (column_units, row_units):
-        for row in search_space:
-            for box in row:
+        for subspace in search_space:
+            # Check every box of subspace for twins
+            for box in subspace:
                 twins = []
+                # Twins defined as a peer box that has the same value and the length of 2
                 if len(values[box])==2:
-                    for peer in row:
+                    for peer in subspace:
                         if (peer!=box) & (values[box]==values[peer]):
                             twins = [peer, box]
                 # Eliminate the naked twins as possibilities for their peers
                 if len(twins)>0:
+                    # To minimize compute time, we should only run the algorithm on one of the twins
+                    # (as they have the same value)
                     twin = twins[0]
                     for digit in values[twin]:
-                        for peer in row:
+                        # eliminate digits in twin values from the other peers
+                        for peer in subspace:
+                            # ensure that twin values themselves are remain intact
                             if peer not in twins:
                                 assign_value(values, peer, values[peer].replace(digit,''))
     return values
+
+
+def diagonal_sudoku(values):
+    """Eliminate values using the diagonal strategy.
+    Args:
+        values(dict): a dictionary of the form {'box_name': '123456789', ...}
+
+    Returns:
+        the values dictionary with the naked twins eliminated from peers.
+    """
+    # Eliminate value of a solved box and check only choice condition for diagonal peers
+    stalled = False
+    # Repeat the cycle until no additional improvement is achieved
+    while not stalled:
+        # Check the number of solved values before applying the algorithm
+        solved_values_before = len([box for box, value in values.items() if len(value) == 1])
+        # Run the algorithm on both diagonals
+        for search_space in diagonals:
+            # Isolate the diagonal
+            diagonal = dict((i, values[i]) for i in search_space)
+            # eliminate
+            solved_values = [box for box, value in diagonal.items() if len(value) == 1]
+            for box in solved_values:
+                digit = diagonal[box]
+                for peer in diagonal.keys():
+                    if peer!=box:
+                        diagonal[peer] = diagonal[peer].replace(digit, '')
+            # only choice
+            for digit in '123456789':
+                dplaces = [box for box, value in diagonal.items() if digit in value]
+                if len(dplaces) == 1:
+                    diagonal[dplaces[0]] = digit
+            # update values
+            for box, value in diagonal.items():
+                values[box] = value
+        # Check the number of solved values after the algorithm was applied
+        solved_values_after = len([box for box, value in values.items() if len(value) == 1])
+        # Verify if the solution was improved
+        stalled = solved_values_before == solved_values_after
+
+    return values
+
 
 def grid_values(grid):
     """
@@ -125,8 +180,9 @@ def reduce_puzzle(values):
     while not stalled:
         solved_values_before = len([box for box, value in values.items() if len(value) == 1])
         values = eliminate(values)
-        values = only_choice(values)
+        values = diagonal_sudoku(values)
         values = naked_twins(values)
+        values = only_choice(values)
         solved_values_after = len([box for box, value in values.items() if len(value) == 1])
         stalled = solved_values_before == solved_values_after
         if len([box for box in values.keys() if len(values[box]) == 0]):
